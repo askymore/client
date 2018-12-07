@@ -339,8 +339,7 @@ protocol local {
   }
 
   // Called when Send is tapped from the build form.
-  // Returns immediately but promises to trigger at least one uiPaymentReview
-  // (unless the bid is canceled).
+  // Sends uiPaymentReview notifications while it is open.
   void reviewPaymentLocal(
     int sessionID,
     // Should be the latest ID that went through buildPaymentLocal and returned readyToReview.

@@ -51,7 +51,7 @@ type Stellar struct {
 	disclaimerLock     sync.Mutex
 	disclaimerAccepted *keybase1.UserVersion // A UV who has accepted the disclaimer.
 
-	// Slot for build payments which do not use BuildPaymentID.
+	// Slot for build payments that do not use BuildPaymentID.
 	buildPaymentSlot *slotctx.PrioritySlot
 
 	migrationLock sync.Mutex
