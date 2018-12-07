@@ -1440,6 +1440,7 @@ func newTestUISource() *testUISource {
 	return &testUISource{
 		secretUI:   nullSecretUI{},
 		identifyUI: &kbtest.FakeIdentifyUI{},
+		stellarUI:  &mockStellarUI{},
 	}
 }
 
@@ -1452,13 +1453,18 @@ func (t *testUISource) IdentifyUI(g *libkb.GlobalContext, sessionID int) libkb.I
 }
 
 func (t *testUISource) StellarUI() stellar1.UiInterface {
-	return nullStellarUI{}
+	return t.stellarUI
 }
 
-type nullStellarUI struct{}
+type mockStellarUI struct {
+	UiPaymentReviewHandler func(context.Context, stellar1.UiPaymentReviewArg) error
+}
 
-func (nullStellarUI) UiPaymentReview(context.Context, stellar1.UiPaymentReviewArg) error {
-	return fmt.Errorf("nullStellarUI.UiPaymentReview called")
+func (ui *mockStellarUI) UiPaymentReview(ctx context.Context, arg stellar1.UiPaymentReviewArg) error {
+	if ui.UiPaymentReviewHandler != nil {
+		return ui.UiPaymentReviewHandler(ctx, arg)
+	}
+	return fmt.Errorf("mockStellarUI.UiPaymentReview called with no handler")
 }
 
 func TestV2EndpointsAsV1(t *testing.T) {

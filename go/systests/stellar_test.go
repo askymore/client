@@ -143,8 +143,9 @@ func testStellarRelayAutoClaims(t *testing.T, startWithPUK, skipPart2 bool) {
 	t.Logf("alice sends a second relay payment to bob P2")
 	cmd = client.CmdWalletSend{
 		Contextified: libkb.NewContextified(alice.tc.G),
-		Recipient:    bob.username,
-		Amount:       "30",
+		// Recipient:    bob.username,
+		Recipient: bob.username,
+		Amount:    "30",
 	}
 	for i := 0; i < retryCount; i++ {
 		err = cmd.Run()

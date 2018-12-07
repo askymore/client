@@ -15,6 +15,7 @@ import (
 	"github.com/keybase/client/go/protocol/stellar1"
 	"github.com/keybase/client/go/stellar"
 	"github.com/keybase/client/go/stellar/remote"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1692,7 +1693,15 @@ func TestBuildPaymentLocal(t *testing.T) {
 
 // Simple happy path case.
 func TestBuildPaymentLocalBidHappy(t *testing.T) {
-	// xxx remove BypassReview from tests
+	testBuildPaymentLocalBidHappy(t, false)
+}
+
+func TestBuildPaymentLocalBidHappyBypassReview(t *testing.T) {
+	testBuildPaymentLocalBidHappy(t, true)
+}
+
+func testBuildPaymentLocalBidHappy(t *testing.T, bypassReview bool) {
+	t.Logf("BypassReview:%v", bypassReview)
 
 	tcs, cleanup := setupNTests(t, 2)
 	defer cleanup()
@@ -1727,15 +1736,62 @@ func TestBuildPaymentLocalBidHappy(t *testing.T) {
 	t.Logf(spew.Sdump(bres))
 	require.Equal(t, true, bres.ReadyToReview)
 
+	if !bypassReview {
+		reviewPaymentExpectQuickSuccess(t, tcs[0], stellar1.ReviewPaymentLocalArg{
+			Bid: bid1,
+		})
+	}
+
 	_, err = tcs[0].Srv.SendPaymentLocal(context.Background(), stellar1.SendPaymentLocalArg{
 		Bid:          bid1,
-		BypassReview: true,
+		BypassReview: bypassReview,
 		From:         senderAccountID,
 		To:           tcs[1].Fu.Username,
 		Amount:       "15",
 		Asset:        stellar1.AssetNative(),
 	})
 	require.NoError(t, err)
+}
+
+func reviewPaymentExpectQuickSuccess(t testing.TB, tc *TestContext, arg stellar1.ReviewPaymentLocalArg) {
+	start := time.Now()
+	timeout := time.Second
+	if libkb.UseCITime(tc.G) {
+		timeout = 15 * time.Second
+	}
+	timeoutCh := time.After(timeout)
+	mockUI := tc.Srv.uiSource.(*testUISource).stellarUI.(*mockStellarUI)
+	original := mockUI.UiPaymentReviewHandler
+	defer func() {
+		mockUI.UiPaymentReviewHandler = original
+	}()
+	reviewSuccessCh := make(chan struct{}, 1)
+	mockUI.UiPaymentReviewHandler = func(ctx context.Context, notification stellar1.UiPaymentReviewArg) error {
+		assert.Equal(t, arg.Bid, notification.Msg.Bid)
+		assert.Nil(t, notification.Msg.Banners)
+		switch notification.Msg.NextButton {
+		case "spinning":
+		case "enabled":
+			select {
+			case reviewSuccessCh <- struct{}{}:
+			default:
+			}
+		default:
+			assert.Failf(t, "unexpected button status", "%v", notification.Msg.NextButton)
+		}
+		return nil
+	}
+	go func() {
+		err := tc.Srv.ReviewPaymentLocal(context.Background(), arg)
+		assert.NoError(t, err) // Use 'assert' since 'require' can only be used from the main goroutine.
+	}()
+	select {
+	case <-timeoutCh:
+		assert.Fail(t, "timed out")
+	case <-reviewSuccessCh:
+	}
+	t.Logf("review ran for %v", time.Now().Sub(start))
+	check(t)
 }
 
 // Cases where Send is blocked because the build gamut wasn't run.
@@ -2145,4 +2201,11 @@ func firstAccountName(t testing.TB, tc *TestContext) string {
 	loggedInUsername := tc.G.ActiveDevice.Username(libkb.NewMetaContextForTest(tc.TestContext))
 	require.True(t, loggedInUsername.IsValid())
 	return fmt.Sprintf("%v's account", loggedInUsername)
+}
+
+func check(t testing.TB) {
+	if t.Failed() {
+		// The test failed. Possibly in anothe goroutine. Look earlier in the logs for the real failure.
+		require.FailNow(t, "test already failed")
+	}
 }

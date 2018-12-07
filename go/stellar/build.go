@@ -369,6 +369,8 @@ func ReviewPaymentLocal(mctx libkb.MetaContext, stellarUI stellar1.UiInterface, 
 		mctx.CDebugf("skipping identify of recipient: %v", data.Frozen.To) // xxx tbd
 	}
 
+	data.ReadyToSend = true
+
 	if err := mctx.Ctx().Err(); err != nil {
 		return err
 	}
