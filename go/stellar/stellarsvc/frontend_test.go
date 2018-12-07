@@ -1875,7 +1875,7 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 	}{
 		{
 			Key:         "forgotBuild",
-			Description: "Can't send without a successful build",
+			Description: "Can't send without a successful build. Also can't review without a build.",
 		}, {
 			Key:         "forgotReview",
 			Description: "Can't send before review",
@@ -1897,14 +1897,11 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 		}, {
 			Key:         "afterStopppedByStopThenBuild",
 			Description: "Can't send after stopped (by stop call) even after build",
+		}, {
+			Key:         "build-review-build-send",
+			Description: "Can't send without a review after the _latest_ send",
 		},
 	}
-
-	// xxx todo
-	// forgotReview
-	// reviewTooEarly
-	// build-review-change-send
-	// build-review-change-review-send (this one should work)
 
 	for _, unit := range units {
 		t.Logf("unit %v: %v", unit.Key, unit.Description)
@@ -1997,6 +1994,20 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 
 			errString = send(bid1, "11")
 			require.Equal(t, "this payment has been stopped", errString)
+
+		case "build-review-build-send":
+			bres, err := build(bid1, "12")
+			require.NoError(t, err)
+			require.Equal(t, true, bres.ReadyToReview)
+
+			reviewExpectQuickSuccess()
+
+			bres, err = build(bid1, "15")
+			require.NoError(t, err)
+			require.Equal(t, true, bres.ReadyToReview)
+
+			errString := send(bid1, "15")
+			require.Equal(t, "this payment has not been reviewed", errString)
 
 		default:
 			t.Fatalf("unknown case %v", unit.Key)
