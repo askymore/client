@@ -389,7 +389,7 @@ func (s *Stellar) acquireBuildPayment(mctx1 libkb.MetaContext, bid stellar1.Buil
 	return mctx, nil, release, fmt.Errorf("payment build not found")
 }
 
-// finalizeBuildPayment stops a payment and returns its data.
+// finalizeBuildPayment stops a bid forever and returns its data.
 func (s *Stellar) finalizeBuildPayment(mctx libkb.MetaContext, bid stellar1.BuildPaymentID) (res *buildPaymentData, err error) {
 	mctx.CDebugf("Stellar.finalizeBuildPayment(%v)", bid)
 	s.bidLock.Lock()
@@ -416,62 +416,6 @@ func (s *Stellar) finalizeBuildPayment(mctx libkb.MetaContext, bid stellar1.Buil
 	}
 	return nil, fmt.Errorf("payment build not found")
 }
-
-// // stopBuildPayment removes a bid.
-// // Returns the previous value of the entry.
-// func (s *Stellar) stopBuildPayment(mctx libkb.MetaContext, bid stellar1.BuildPaymentID) (res *buildPaymentEntry) {
-// 	mctx.CDebugf("Stellar.stopBuildPayment(%v)", bid)
-// 	s.buildPaymentSlot.Stop()
-// 	s.bidLock.Lock()
-// 	defer s.bidLock.Unlock()
-// 	// Remove bid from s.bids.
-// 	var bids []buildPaymentEntry
-// 	for _, entry := range s.bids {
-// 		if entry.Bid.Eq(bid) {
-// 			entry := entry
-// 			entry.BuildSlot.Stop()
-// 			entry.ReviewSlot.Stop()
-// 			res = &entry
-// 			bids = append(bids, buildPaymentEntry{
-// 				Bid:     bid,
-// 				Stopped: true,
-// 			})
-// 		} else {
-// 			bids = append(bids, entry)
-// 		}
-// 	}
-// 	s.bids = bids
-// 	return res
-// }
-
-// // updateBuildPayment updates the state of an in-progress payment.
-// // Frozen values mean the payment is ready to review.
-// // No-op if the bid does not exist.
-// func (s *Stellar) updateBuildPayment(mctx libkb.MetaContext, bid stellar1.BuildPaymentID, frozen *frozenPayment) (err error) {
-// 	mctx.CDebugf("Stellar.updateBuildPayment(%v, set:%v)", bid, frozen != nil)
-// 	s.bidLock.Lock()
-// 	defer s.bidLock.Unlock()
-// 	if err := mctx.Ctx().Err(); err != nil {
-// 		return err
-// 	}
-// 	var bids []buildPaymentEntry
-// 	for _, entry := range s.bids {
-// 		if entry.Stopped {
-// 			mctx.CDebugf("blocking attempt to update stopped payment %v", bid)
-// 		}
-// 		if entry.Bid.Eq(bid) && !entry.Stopped {
-// 			entry := entry.copy()
-// 			entry.ReadyToReview = frozen != nil
-// 			entry.ReadyToSend = false // Values may have been updated. A review is required before sending.
-// 			entry.Frozen = frozen
-// 			bids = append(bids, entry)
-// 		} else {
-// 			bids = append(bids, entry)
-// 		}
-// 	}
-// 	s.bids = bids
-// 	return nil
-// }
 
 // getFederationClient is a helper function used during
 // initialization.

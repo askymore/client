@@ -119,7 +119,7 @@ const buildPaymentResultToBuiltPayment = (b: RPCTypes.BuildPaymentResLocal) =>
     displayAmountXLM: b.displayAmountXLM,
     from: Types.stringToAccountID(b.from),
     publicMemoErrMsg: new HiddenString(b.publicMemoErrMsg),
-    readyToSend: b.readyToSend,
+    readyToSend: b.readyToReview, // DESKTOP-xxx
     secretNoteErrMsg: new HiddenString(b.secretNoteErrMsg),
     sendingIntentionXLM: b.sendingIntentionXLM,
     toErrMsg: b.toErrMsg,
