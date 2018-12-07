@@ -725,7 +725,7 @@ func newBuildPaymentEntry(bid stellar1.BuildPaymentID) *buildPaymentEntry {
 // the Send request matches it.
 func (b *buildPaymentData) CheckReadyToSend(arg stellar1.SendPaymentLocalArg) error {
 	if !b.ReadyToSend {
-		if b.ReadyToReview {
+		if !b.ReadyToReview {
 			// Payment is not even ready for review.
 			return fmt.Errorf("this payment is not ready to send")
 		}

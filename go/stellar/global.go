@@ -400,7 +400,7 @@ func (s *Stellar) finalizeBuildPayment(mctx libkb.MetaContext, bid stellar1.Buil
 			continue
 		}
 		if entry.Stopped {
-			return nil, fmt.Errorf("this payment has already been stopped")
+			return nil, fmt.Errorf("this payment has been stopped")
 		}
 		entry.Slot.Shutdown()
 		entry.Stopped = true

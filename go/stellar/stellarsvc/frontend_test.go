@@ -1794,6 +1794,44 @@ func reviewPaymentExpectQuickSuccess(t testing.TB, tc *TestContext, arg stellar1
 	check(t)
 }
 
+func reviewPaymentExpectContractFailure(t testing.TB, tc *TestContext, arg stellar1.ReviewPaymentLocalArg, msg string) {
+	start := time.Now()
+	timeout := time.Second
+	if libkb.UseCITime(tc.G) {
+		timeout = 15 * time.Second
+	}
+	timeoutCh := time.After(timeout)
+	mockUI := tc.Srv.uiSource.(*testUISource).stellarUI.(*mockStellarUI)
+	original := mockUI.UiPaymentReviewHandler
+	defer func() {
+		mockUI.UiPaymentReviewHandler = original
+	}()
+	mockUI.UiPaymentReviewHandler = func(ctx context.Context, notification stellar1.UiPaymentReviewArg) error {
+		assert.Equal(t, arg.Bid, notification.Msg.Bid)
+		switch notification.Msg.NextButton {
+		case "spinning":
+		case "disabled":
+		default:
+			assert.Failf(t, "unexpected button status", "%v", notification.Msg.NextButton)
+		}
+		return nil
+	}
+	reviewFinishCh := make(chan error, 1)
+	go func() {
+		err := tc.Srv.ReviewPaymentLocal(context.Background(), arg)
+		reviewFinishCh <- err
+	}()
+	select {
+	case <-timeoutCh:
+		assert.Fail(t, "timed out")
+	case err := <-reviewFinishCh:
+		require.Error(t, err)
+		require.Equal(t, msg, err.Error())
+	}
+	t.Logf("review ran for %v", time.Now().Sub(start))
+	check(t)
+}
+
 // Cases where Send is blocked because the build gamut wasn't run.
 func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 	// xxx update this test to purposefully use or not use review
@@ -1837,7 +1875,13 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 	}{
 		{
 			Key:         "forgotBuild",
-			Description: "Can't send before precheck",
+			Description: "Can't send without a successful build",
+		}, {
+			Key:         "forgotReview",
+			Description: "Can't send before review",
+		}, {
+			Key:         "forgotBoth",
+			Description: "Can't send before precheck and review",
 		}, {
 			Key:         "wrongAmount",
 			Description: "Can't send with wrong amount",
@@ -1856,20 +1900,49 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 		},
 	}
 
+	// xxx todo
+	// forgotReview
+	// reviewTooEarly
+	// build-review-change-send
+	// build-review-change-review-send (this one should work)
+
 	for _, unit := range units {
 		t.Logf("unit %v: %v", unit.Key, unit.Description)
 		bid1, err := tcs[0].Srv.StartBuildPaymentLocal(context.Background(), 0)
 		require.NoError(t, err)
 
+		reviewExpectContractFailure := func(msg string) {
+			reviewPaymentExpectContractFailure(t, tcs[0], stellar1.ReviewPaymentLocalArg{Bid: bid1}, msg)
+		}
+		reviewExpectQuickSuccess := func() {
+			reviewPaymentExpectQuickSuccess(t, tcs[0], stellar1.ReviewPaymentLocalArg{Bid: bid1})
+		}
+
 		switch unit.Key {
 		case "forgotBuild":
+			reviewExpectContractFailure("this payment is not ready to review")
+
+			errString := send(bid1, "11")
+			require.Equal(t, "this payment is not ready to send", errString)
+
+		case "forgotReview":
+			bres, err := build(bid1, "12")
+			require.NoError(t, err)
+			require.Equal(t, true, bres.ReadyToReview)
+
 			errString := send(bid1, "11")
 			require.Equal(t, "this payment has not been reviewed", errString)
+
+		case "forgotBoth":
+			errString := send(bid1, "12")
+			require.Equal(t, "this payment is not ready to send", errString)
 
 		case "wrongAmount":
 			bres, err := build(bid1, "12")
 			require.NoError(t, err)
 			require.Equal(t, true, bres.ReadyToReview)
+
+			reviewExpectQuickSuccess()
 
 			errString := send(bid1, "15")
 			require.Equal(t, "mismatched amount: 15 != 12", errString)
@@ -1878,6 +1951,8 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 			bres, err := build(bid1, "12")
 			require.NoError(t, err)
 			require.Equal(t, true, bres.ReadyToReview)
+
+			reviewExpectQuickSuccess()
 
 			errString := send(bid1, "15")
 			require.Equal(t, "mismatched amount: 15 != 12", errString)
@@ -1889,6 +1964,8 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 			bres, err := build(bid1, "11")
 			require.NoError(t, err)
 			require.Equal(t, true, bres.ReadyToReview)
+
+			reviewExpectQuickSuccess()
 
 			errString := send(bid1, "11")
 			require.Equal(t, "", errString)
@@ -1915,6 +1992,8 @@ func TestBuildPaymentLocalBidBlocked(t *testing.T) {
 
 			_, err := build(bid1, "11")
 			_ = err // Calling build on a stopped payment is do-no-harm undefined behavior.
+
+			reviewExpectContractFailure("this payment has been stopped") // Calling review on a stopped payment is do-no-harm not gonna happen.
 
 			errString = send(bid1, "11")
 			require.Equal(t, "this payment has been stopped", errString)
