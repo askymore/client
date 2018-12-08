@@ -166,7 +166,7 @@
     "recompose": "0.30.0",
     "redux": "4.0.1",
     "redux-saga": "0.16.2",
-    "rn-fetch-blob": "0.10.13",
+    "rn-fetch-blob": "git://github.com/keybase/rn-fetch-blob#v0.10.13-with-keybase-fixes",
     "shallowequal": "1.1.0",
     "simple-markdown": "0.4.2",
     "tlds": "1.203.1",
