@@ -10146,9 +10146,9 @@ react-native-camera@1.4.3:
     lodash "^4.17.10"
     prop-types "^15.6.2"
 
-react-native-contacts@2.2.4:
+"react-native-contacts@git://github.com/keybase/react-native-contacts#keybase-fixes-off-2.2.4":
   version "2.2.4"
-  resolved "https://registry.yarnpkg.com/react-native-contacts/-/react-native-contacts-2.2.4.tgz#6038aefdae6725073536e40bd350bcf255e48062"
+  resolved "git://github.com/keybase/react-native-contacts#31e64fab8ae66833d8171624a9e6a900d628a129"
 
 react-native-dismiss-keyboard@1.0.0:
   version "1.0.0"
